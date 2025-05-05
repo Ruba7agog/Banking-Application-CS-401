@@ -19,24 +19,25 @@ public class LoginApplication {
         this.handler = handler;
     }
 
-    // Called when a connection error happens (server down, socket closed)
-    public void handleConnectionError(String message) {
-        if (gui != null) {
-            gui.showError(message);
-        }
+    public ClientProfileApplication getClientProfileApp() {
+        return clientProApp;
     }
 
-    // Called when the server sends a timeout (session expired)
-    public void handleSessionTimeout() {
-        if (gui != null) {
-            gui.showError("Session timed out due to inactivity.");
-            gui.Login(); // Restart the login screen
-        }
+    public ATMApplication getAtmApp() {
+        return ATMApp;
     }
+
+    public TellerApplication getTellerApp() {
+        return tellerApp;
+    }
+
 
     // Sends a login request for a Teller FINISH ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    public void TellerLogin(String user, String pass) {
+    public Message TellerLogin(String user, String pass) {
         establishConnection();
+        if (!establishConnection()) {
+            return new FailureMessage("CONNECTION_ERROR: Failed to establish connection to the server.");
+        }
         Message loginMsg = new LoginMessage(Message.TYPE.LOGIN_TELLER, user, pass);
         handler.send(loginMsg);
 
@@ -58,24 +59,27 @@ public class LoginApplication {
                 FailureMessage msg = (FailureMessage) serverResponse;
                 System.out.println("Error: " + msg.getMessage());
             } else {
-                System.out.println("Error: unexpected message type received");
+                return new FailureMessage("Unexpected error occurred during login: ");
             }
+            return serverResponse;
         } catch (Exception e) {
-            System.out.println("Login request interrupted");
-            if (gui != null) gui.showError("Login process interrupted");
+            return new FailureMessage("CLIENT_ERROR: An error occurred during login: " + e.getMessage());
         }
     }
 
     // Sends a login request for a Client -- from an ATM
-    public void ClientLogin(String user, String pass) {
+    public Message ClientLogin(String user, String pass) {
         establishConnection();
+        if (!establishConnection()) {
+            return new FailureMessage("CONNECTION_ERROR: Failed to establish connection to the server.");
+        }
         Message loginMsg = new LoginMessage(Message.TYPE.LOGIN_CLIENT, user, pass);
         handler.send(loginMsg);
 
         // BLOCK and wait for server response
         try {
             Message serverResponse = handler.getMessage();
-            if (serverResponse.getType() == Message.TYPE.SUCCESS && serverResponse instanceof SuccessMessage){
+            if (serverResponse instanceof SuccessMessage){
                 // cast to successMessage & manage new session ID
                 SuccessMessage msg = (SuccessMessage) serverResponse;
                 SessionInfo session = msg.getSession();
@@ -89,32 +93,45 @@ public class LoginApplication {
                 ATMApp.setSession(session);
                 clientProApp.setATMApplication(ATMApp);
 
-                clientProApp.requestProfile();
+               // gui will call requestprofile
 
 
             }else if (serverResponse instanceof FailureMessage){
                 // cast to FailureMessage
                 FailureMessage msg = (FailureMessage) serverResponse;
-                System.out.println("Error: " + msg.getMessage());
+                return msg;
             } else {
-                System.out.println("Error: unexpected message type received");
+                return new FailureMessage("Unexpected message type received");
             }
+            return serverResponse;
         } catch (Exception e) {
-            System.out.println("Login request interrupted");
-            if (gui != null) gui.showError("Login process interrupted");
+            return new FailureMessage("Unexpected error occurred during login: ");
         }
     }
 
     // Connects to the server and creates the handler if it's not already set
-    private void establishConnection() {
+    private boolean establishConnection() {
         if (handler == null) {
             try {
                 Socket socket = new Socket("localhost", 7777);
                 handler = new ConnectionHandler(socket);
                 new Thread(handler).start();
+                return true;
             } catch (Exception e) {
                 System.err.println("Failed to connect: " + e.getMessage());
+                return false;
             }
         }
+        return false;
     }
+
+    public void exitApplication() {
+        System.out.println(" Exit requested.");
+        if (handler != null) {
+             handler.shutDown(); 
+             handler = null;
+        }
+        System.out.println("Exiting application.");
+        System.exit(0); // Terminate the application
+   }
 } 
