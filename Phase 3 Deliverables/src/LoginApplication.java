@@ -1,42 +1,29 @@
+import java.io.IOException;
 import java.net.Socket;
 
 public class LoginApplication {
     private ConnectionHandler handler;
-    private SessionListener sessionListener;
 
-    public void setSessionListener(SessionListener listener) {
-        this.sessionListener = listener;
+    public ConnectionHandler getHandler() {
+        establishConnection();
+        return handler;
     }
 
-    public void login(String user, String pass, boolean isTeller) {
+    public LoginResult login(String user, String pass, boolean isTeller)
+            throws IOException, LoginException {
         establishConnection();
-        Message loginMsg = new LoginMessage(
+        handler.sendMessage(new LoginMessage(
             isTeller ? Message.TYPE.LOGIN_TELLER : Message.TYPE.LOGIN_CLIENT,
             user, pass
-        );
-        handler.sendMessage(loginMsg);
-
-        try {
-            Message response = handler.getMessage();
-            if (response instanceof SuccessMessage) {
-                SessionInfo session = ((SuccessMessage) response).getSession();
-
-                if (sessionListener != null) {
-                    sessionListener.onLoginSuccess(session, handler);
-                }
-            } else if (response instanceof FailureMessage) {
-                if (sessionListener != null) {
-                    sessionListener.onLoginFailure(((FailureMessage) response).getMessage());
-                }
-            } else {
-                if (sessionListener != null) {
-                    sessionListener.onLoginFailure("Unexpected server response.");
-                }
-            }
-        } catch (Exception e) {
-            if (sessionListener != null) {
-                sessionListener.onLoginFailure("Login failed: " + e.getMessage());
-            }
+        ));
+        Message resp = handler.getMessage();
+        if (resp instanceof SuccessMessage sm) {
+            handler.setCurrentSession(sm.getSession());
+            return new LoginResult(sm.getSession());
+        } else if (resp instanceof FailureMessage fm) {
+            throw new LoginException(fm.getMessage());
+        } else {
+            throw new LoginException("Unexpected server response");
         }
     }
 
@@ -46,10 +33,23 @@ public class LoginApplication {
                 Socket socket = new Socket("localhost", 7777);
                 handler = new ConnectionHandler(socket);
                 new Thread(handler).start();
-            } catch (Exception e) {
-                System.err.println("Connection failed: " + e.getMessage());
+            } catch (IOException e) {
+                throw new RuntimeException("Connection failed: " + e.getMessage(), e);
             }
         }
     }
-}  
+
+    // Helper classes embedded
+    public static class LoginResult {
+        public final SessionInfo session;
+        public LoginResult(SessionInfo session) { this.session = session; }
+    }
+
+    public static class LoginException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+		public LoginException(String msg) { super(msg); }
+    }
+}
+
 
