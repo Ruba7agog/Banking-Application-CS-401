@@ -63,7 +63,7 @@ public class LoginGUI extends JFrame {
         for (JToggleButton tb : new JToggleButton[]{tellerBtn, clientBtn}) {
             tb.setOpaque(true); tb.setContentAreaFilled(true); tb.setBorderPainted(false);
             tb.setBackground(toggleBg); tb.setForeground(toggleFg);
-            tb.addItemListener(_ -> tb.setBackground(tb.isSelected() ? toggleSel : toggleBg));
+            tb.addItemListener(e -> tb.setBackground(tb.isSelected() ? toggleSel : toggleBg));
         }
         tellerBtn.setBackground(toggleSel);
 
@@ -75,12 +75,12 @@ public class LoginGUI extends JFrame {
         cards = new JPanel(new CardLayout()); cards.setOpaque(false);
         cards.add(buildForm("Employee Username:", empField = new JTextField(15), "Password:", empPass = new JPasswordField(15)), "Teller");
         cards.add(buildForm("Bank Username:", clientField = new JTextField(15), "Password:", clientPass = new JPasswordField(15)), "Client");
-        tellerBtn.addActionListener(_ -> ((CardLayout)cards.getLayout()).show(cards, "Teller"));
-        clientBtn.addActionListener(_ -> ((CardLayout)cards.getLayout()).show(cards, "Client"));
+        tellerBtn.addActionListener(e -> ((CardLayout)cards.getLayout()).show(cards, "Teller"));
+        clientBtn.addActionListener(e -> ((CardLayout)cards.getLayout()).show(cards, "Client"));
 
         loginBtn = new JButton("Login"); loginBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         loginBtn.addActionListener(this::doLogin);
-        exitBtn = new JButton("Exit"); exitBtn.addActionListener(_ -> System.exit(0));
+        exitBtn = new JButton("Exit"); exitBtn.addActionListener(e -> System.exit(0));
         JPanel btnPanel = new JPanel(); btnPanel.setOpaque(false);
         btnPanel.add(loginBtn); btnPanel.add(exitBtn);
         getRootPane().setDefaultButton(loginBtn);
@@ -142,7 +142,9 @@ public class LoginGUI extends JFrame {
                         dispose();
                         if (session.getRole() == SessionInfo.ROLE.TELLER) {
                         	System.out.println("Teller Login Successful");
-                            //new TellerGUI(handler, session).display();
+                        	LoginGUI.this.setVisible(false);
+                        	TellerProfileGUI tellerGUI = new TellerProfileGUI(session, loginApp.getHandler(), LoginGUI.this);
+                        	tellerGUI.setVisible(true);
                         } else {
                         	System.out.println("Client Login Successful");
                             //new ATMProfileGUI(handler, session).display();
