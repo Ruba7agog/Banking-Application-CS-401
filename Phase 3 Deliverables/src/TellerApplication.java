@@ -427,4 +427,12 @@ public class TellerApplication {
             return false;
         }
     }
+
+    public String getTellerName() {
+        return (profile != null) ? profile.getLegalName() : "Teller";
+    }
+
+    public String getBranch() {
+        return "Main Branch"; // Or retrieve it if it's in SessionInfo or elsewhere
+    }
 }

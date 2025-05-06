@@ -11,8 +11,7 @@ public class TellerProfileGUI extends JFrame {
    
     /*                     ───  State  ─────────────────────────────────── */
     
-    private final TellerProfileApplication app;
-    private final ProfileMessage           profileMsg; // holds teller info (name, branch, etc.)
+    private final TellerApplication app;
 
     /* Palette reused from ATMProfileGUI */
     private static final Color BRAND_DARK  = Color.decode("#00875A");
@@ -21,17 +20,13 @@ public class TellerProfileGUI extends JFrame {
     
     /*                     ───  Constructors  ──────────────────────────── */
     
+    private final LoginGUI loginGUI;
 
-    public TellerProfileGUI(TellerProfileApplication app, ProfileMessage msg) {
-        this.app        = app;
-        this.profileMsg = msg;
+    public TellerProfileGUI(SessionInfo session, ConnectionHandler handler, LoginGUI loginGUI) {
+        this.app = new TellerApplication(session, handler);
+        this.loginGUI = loginGUI;
         initLookAndFeel();
         initComponents();
-    }
-
-    // Convenience overload for older call‑sites
-    public TellerProfileGUI(TellerProfileApplication app) {
-        this(app, app.getProfile());
     }
 
     
@@ -61,8 +56,8 @@ public class TellerProfileGUI extends JFrame {
         bankName.setFont(new Font("Segoe UI", Font.BOLD, 28));
         bankName.setForeground(Color.WHITE);
 
-        String tellerName = profileMsg != null ? profileMsg.getLegalName() : app.getTellerName();
-        String branch     = profileMsg != null ? app.getBranch()      : app.getBranch();
+        String tellerName = app.getTellerName();  // implement this method
+        String branch     = app.getBranch();      // implement this method
 
         JLabel tellerInfo = new JLabel("Teller: " + tellerName + "  |  Bank Location: " + branch,
                                        SwingConstants.RIGHT);
@@ -95,14 +90,9 @@ public class TellerProfileGUI extends JFrame {
 
         searchBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Search – coming soon!"));
         createBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Create – coming soon!"));
-        logoutBtn .addActionListener(e -> {
-            dispose();
-            LoginApplication loginApp = app.getLoginApp();
-            if (loginApp != null) {
-                LoginGUI gui = new LoginGUI(loginApp);
-                loginApp.setGUI(gui);
-                gui.setVisible(true);
-            }
+        logoutBtn.addActionListener(e -> {
+            dispose();                  // Close the teller GUI
+            loginGUI.setVisible(true);  // Bring the login GUI back
         });
 
         JPanel row1 = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 10));
