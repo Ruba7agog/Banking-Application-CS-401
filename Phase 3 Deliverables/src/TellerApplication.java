@@ -1,25 +1,20 @@
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 
 public class TellerApplication {
 
-    private ClientProfile profile;
-    private Account account;
+    private ProfileMessage profile;
+    private AccountMessage account;
     private ConnectionHandler handler;
     private SessionInfo session;
     private List<AccountSummary> accounts;
 
-    public void setConnectionHandler(ConnectionHandler c) {
-        this.handler = c;
-    }
-
-    public void setSession(SessionInfo s) {
-        this.session = s;
+    public TellerApplication(SessionInfo session, ConnectionHandler handler) {
+    	this.session = session;
+    	this.handler = handler;
     }
 
     public Boolean changeProfileInfo(String username, String password, String phone, String address, String legalName) {
-
         ProfileMessage msg = new ProfileMessage(Message.TYPE.SAVE_PROFILE,
                 this.session,
                 username,
@@ -29,7 +24,7 @@ public class TellerApplication {
                 legalName,
                 this.accounts);
 
-        handler.send(msg);
+        handler.sendMessage(msg);
 
         try {
             Message response = handler.getMessage();
@@ -61,7 +56,7 @@ public class TellerApplication {
                 profile.getLegalName(),
                 this.accounts);
 
-        handler.send(delProfile);
+        handler.sendMessage(delProfile);
 
         try {
             Message response = handler.getMessage();
@@ -88,7 +83,7 @@ public class TellerApplication {
                 profile.getUsername(),
                 id);
 
-        handler.send(delAccount);
+        handler.sendMessage(delAccount);
 
         try {
             Message response = handler.getMessage();
@@ -111,59 +106,47 @@ public class TellerApplication {
     // GUI MUST pass in either CHECKING, SAVING, or CREDIT_LINE as input
     // in GUI only take in String if creating credit account
     public boolean addAccount(String type, String creditLimit, String withdrawalLimit) {
-
         AccountMessage.ACCOUNT_TYPE newType;
         String sentCreditLimit = "0";
         int sentWithdrawalLimit = 0;
 
-        // cast to ENUM
+        // Parse account type
         try {
             newType = AccountMessage.ACCOUNT_TYPE.valueOf(type.toUpperCase());
         } catch (IllegalArgumentException e) {
-            System.err.println("Invalid account type received: " + type);
+            System.err.println("Invalid account type: " + type);
             return false;
         }
 
+        // Validate and set credit limit for CREDIT_LINE
         if (newType == AccountMessage.ACCOUNT_TYPE.CREDIT_LINE) {
-            try {
-                // cast to BigDecimal
-                BigDecimal cl = new BigDecimal(creditLimit.trim());
-                if (cl.compareTo(BigDecimal.ZERO) <= 0) {
-                    System.err.println("Credit limit must be a positive value.");
-                    return false;
-                }
-                sentCreditLimit = creditLimit.trim();
-            } catch (NumberFormatException e) {
-                System.err.println("Credit Limit is invalid: " + creditLimit);
+            if (!isPositiveDecimal(creditLimit)) {
+                System.err.println("Credit limit must be a positive decimal.");
                 return false;
             }
+            sentCreditLimit = creditLimit.trim();
         }
 
+        // Validate and set withdrawal limit for SAVING
         if (newType == AccountMessage.ACCOUNT_TYPE.SAVING) {
-            try {
-                int num = Integer.parseInt(withdrawalLimit);
-                if (num < 0) {
-                    System.err.println("Withdrawal limit must be a positive value.");
-                    return false;
-                }
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid withdrawal number format!");
+            if (!isNonNegativeInteger(withdrawalLimit)) {
+                System.err.println("Withdrawal limit must be a non-negative integer.");
                 return false;
             }
-            // 0 for no limit
-            sentWithdrawalLimit = Integer.parseInt(withdrawalLimit);
+            sentWithdrawalLimit = Integer.parseInt(withdrawalLimit.trim());
         }
 
-        AccountMessage createMsg = new AccountMessage(
-                this.session,
-                this.profile.getUsername(),
-                newType,
-                sentCreditLimit,
-                sentWithdrawalLimit);
-        handler.send(createMsg);
+        // Send account creation request
+        handler.sendMessage(new AccountMessage(
+            this.session,
+            this.profile.getUsername(),
+            newType,
+            sentCreditLimit,
+            sentWithdrawalLimit
+        ));
 
+        // Wait for server response
         try {
-            // BLOCK and wait for response
             Message response = handler.getMessage();
             if (response instanceof SuccessMessage) {
                 System.out.println("Server confirmation: " + ((SuccessMessage) response).getMessage());
@@ -171,35 +154,33 @@ public class TellerApplication {
                 return true;
             } else if (response instanceof FailureMessage) {
                 System.out.println("Error: " + ((FailureMessage) response).getMessage());
-                return false;
-            } else if (response == null) {
-                System.err.println("Timeout or interruption while waiting for server response.");
-                return false;
+            } else {
+                System.err.println("Unexpected or null server response.");
             }
         } catch (Exception e) {
             System.err.println("Error during account creation: " + e.getMessage());
-            return false;
         }
-        System.out.println("smth happened during accreation idk");
-        return false;
 
+        return false;
     }
 
-    public Boolean createNewProfile(String username,
+    public Boolean createNewProfile(
+    		String username,
             String password,
             String phone,
             String address,
             String legalName) {
         // create ProfileMessage of type CREATE_PROFILE
-        ProfileMessage newProfile = new ProfileMessage(Message.TYPE.CREATE_PROFILE,
+        ProfileMessage newProfile = new ProfileMessage(
                 this.session,
                 username,
                 password,
                 phone,
                 address,
-                legalName);
+                legalName
+                );
         // send over to server
-        handler.send(newProfile);
+        handler.sendMessage(newProfile);
         // BLOCK and wait for response
         try {
             Message response = handler.getMessage();
@@ -216,24 +197,21 @@ public class TellerApplication {
         }
         return false;
 
-        // return to teller homepage
-
     }
 
     public boolean withdraw(String amount) {
+    	
         // check that inputted amount is valid
-
         try {
             BigDecimal check = new BigDecimal(amount);
             if (check.compareTo(BigDecimal.ZERO) <= 0) {
                 return false;
             }
-
         } catch (NumberFormatException e) {
             return false;
         }
 
-        Boolean result = performTransaction(amount, Transaction.OPERATION.WITHDRAW);
+        Boolean result = performTransaction(amount, TransactionMessage.OPERATION.WITHDRAW);
 
         if (result != false && this.account != null) {
             return true;
@@ -253,7 +231,7 @@ public class TellerApplication {
             return false;
         }
 
-        Boolean result = performTransaction(amount, Transaction.OPERATION.DEPOSIT);
+        Boolean result = performTransaction(amount, TransactionMessage.OPERATION.DEPOSIT);
 
         if (result != false && this.account != null) {
             return true;
@@ -267,7 +245,7 @@ public class TellerApplication {
         // create ProfileMessage object to send
         Message profileMessage = new ProfileMessage(Message.TYPE.LOAD_PROFILE, this.session, name);
         // send to server via handler
-        handler.send(profileMessage);
+        handler.sendMessage(profileMessage);
 
         // BLOCK and wait for server response
         try {
@@ -276,12 +254,7 @@ public class TellerApplication {
                 // cast serverResponse to ProfileMessage
                 ProfileMessage msg = (ProfileMessage) serverResponse;
                 // create ClientProfile object from server response
-                this.profile = new ClientProfile(
-                        msg.getUsername(),
-                        msg.getPassword(),
-                        msg.getPhone(),
-                        msg.getAddress(),
-                        msg.getLegalName());
+                this.profile = msg;
                 this.accounts = msg.getSummaries();
             } else if (serverResponse.getType() == Message.TYPE.FAILURE && serverResponse instanceof FailureMessage) {
                 // cast to FailureMessage
@@ -298,12 +271,11 @@ public class TellerApplication {
     public void loadAccount(String accID) {
         Message loadAccMsg = new AccountMessage(Message.TYPE.LOAD_ACCOUNT, this.session, this.profile.getUsername(),
                 accID);
-        handler.send(loadAccMsg);
+        handler.sendMessage(loadAccMsg);
 
         try {
             if (refreshAccount()) {
-                // RELAY ACCOUNT TO GUI
-                // gui.displayAccountDetails(account);
+                // RELAY ACCOUNT TO GUI (What?)
             }
         } catch (Exception e) {
             System.out.println("Account loading interrupted.");
@@ -316,7 +288,7 @@ public class TellerApplication {
     public void requestProfile() {
         // create ProfileMessage object to send
         Message profileMessage = new ProfileMessage(Message.TYPE.LOAD_PROFILE, this.session, this.profile.getUsername());
-        handler.send(profileMessage);
+        handler.sendMessage(profileMessage);
 
         // BLOCK and wait for server response
         try {
@@ -325,12 +297,7 @@ public class TellerApplication {
                 // cast serverResponse to ProfileMessage
                 ProfileMessage msg = (ProfileMessage) serverResponse;
                 // create ClientProfile object from server response
-                this.profile = new ClientProfile(
-                        msg.getUsername(),
-                        msg.getPassword(),
-                        msg.getPhone(),
-                        msg.getAddress(),
-                        msg.getLegalName());
+                this.profile = msg;
                 this.accounts = msg.getSummaries();
             } else if (serverResponse.getType() == Message.TYPE.FAILURE && serverResponse instanceof FailureMessage) {
                 // cast to FailureMessage
@@ -351,7 +318,7 @@ public class TellerApplication {
                 this.profile.getUsername(),
                 this.account.getID());
 
-        handler.send(msg);
+        handler.sendMessage(msg);
         // return to clientprofile screen
     }
 
@@ -361,7 +328,7 @@ public class TellerApplication {
                 this.session,
                 this.profile.getUsername());
 
-        handler.send(msg);
+        handler.sendMessage(msg);
         // return to teller homescreen
     }
 
@@ -369,7 +336,7 @@ public class TellerApplication {
         Message logoutMsg = new LogoutMessage(
                 Message.TYPE.LOGOUT_TELLER,
                 this.session);
-        handler.send(logoutMsg);
+        handler.sendMessage(logoutMsg);
 
         Message msg = handler.getMessage();
         if (msg instanceof SuccessMessage) {
@@ -384,7 +351,7 @@ public class TellerApplication {
     // __________________________________________
     // private helper methods ___________________
     // __________________________________________
-    private boolean performTransaction(String amount, Transaction.OPERATION operation) {
+    private boolean performTransaction(String amount, TransactionMessage.OPERATION operation) {
         if (account == null || session == null) {
             System.out.println("No active account session");
             return false;
@@ -397,7 +364,7 @@ public class TellerApplication {
                 operation,
                 account.getID());
         // send it to the server
-        handler.send(transMsg);
+        handler.sendMessage(transMsg);
 
         // BLOCK and wait for server response
         try {
@@ -427,26 +394,13 @@ public class TellerApplication {
         // send LOAD_ACCOUNT request
         AccountMessage requestMsg = new AccountMessage(Message.TYPE.LOAD_ACCOUNT, session, this.profile.getUsername(),
                 account.getID());
-        handler.send(requestMsg);
+        handler.sendMessage(requestMsg);
         // BLOCK client to wait for response
         try {
             Message serverResponse = handler.getMessage();
             if (serverResponse instanceof AccountMessage) {
                 AccountMessage msg = (AccountMessage) serverResponse;
-
-                switch (msg.getAccountType()) {
-                    case CHECKING:
-                        this.account = createCheckingAccount(msg);
-                        break;
-                    case SAVING:
-                        this.account = createSavingAccount(msg);
-                        break;
-                    case CREDIT_LINE:
-                        this.account = createCreditAccount(msg);
-                        break;
-                    default:
-                        throw new IllegalStateException("Unknown account type");
-                }
+                account = msg;
                 return true;
             } else if (serverResponse instanceof FailureMessage) {
                 System.out.println("Error: " + ((FailureMessage) serverResponse).getMessage());
@@ -456,21 +410,21 @@ public class TellerApplication {
         }
         return false;
     }
-
-    private Account createCheckingAccount(AccountMessage msg) {
-        CheckingAccount account = new CheckingAccount(msg.getID(), msg.getBalance(), msg.getTransactionHistory());
-        return account;
+    
+    private boolean isPositiveDecimal(String value) {
+        try {
+            BigDecimal bd = new BigDecimal(value.trim());
+            return bd.compareTo(BigDecimal.ZERO) > 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
-    private Account createSavingAccount(AccountMessage msg) {
-        SavingAccount account = new SavingAccount(msg.getID(), msg.getBalance(), msg.getTransactionHistory(),
-                msg.getWithdrawCount(), msg.getWithdrawLimit());
-        return account;
-    }
-
-    private Account createCreditAccount(AccountMessage msg) {
-        CreditLine account = new CreditLine(msg.getID(), msg.getBalance(), msg.getTransactionHistory(),
-                msg.getCreditLimit());
-        return account;
+    private boolean isNonNegativeInteger(String value) {
+        try {
+            return Integer.parseInt(value.trim()) >= 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 }

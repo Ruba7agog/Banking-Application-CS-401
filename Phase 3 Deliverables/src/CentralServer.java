@@ -834,9 +834,9 @@ public class CentralServer {
 		String password = msg.getPassword();
 
 		ClientProfile profile = this.clientDatabase.get(username);
-		if (profile == null || !profile.getPassword().equals(password)) {
-			handler.sendMessage(new FailureMessage("Invalid credentials."));
-			return;
+		if (profile == null || !password.equals(profile.getPassword())) {
+		    handler.sendMessage(new FailureMessage("Invalid credentials."));
+		    return;
 		}
 
 		// Locking this specific profile for login session check
@@ -860,9 +860,10 @@ public class CentralServer {
 		String username = msg.getUsername();
 		String password = msg.getPassword();
 
-		if (username == null || ! this.tellerDatabase.get(username).equals(password)) {
-			handler.sendMessage(new FailureMessage("Invalid credentials."));
-			return;
+		String storedPassword = this.tellerDatabase.get(username);
+		if (username == null || storedPassword == null || !storedPassword.equals(password)) {
+		    handler.sendMessage(new FailureMessage("Invalid credentials."));
+		    return;
 		}
 
 		// Locking this specific profile for login session check
