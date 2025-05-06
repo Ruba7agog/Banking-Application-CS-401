@@ -18,6 +18,8 @@ public class LoginGUI extends JFrame {
     private JPasswordField empPass, clientPass;
     private JLabel statusLabel; 
     private JPanel cardsPanel;
+    private JButton loginBtn;
+    private JButton exitBtn;
 
     public LoginGUI(LoginApplication app) {
         this.loginApp = app;
@@ -148,8 +150,9 @@ public class LoginGUI extends JFrame {
         center.add(cards,       BorderLayout.CENTER);
         center.add(btnPanel,    BorderLayout.SOUTH);
         getContentPane().add(center, BorderLayout.CENTER);
+    }
 
-    // Builds a two‐row form
+    
     private JPanel buildForm(String lbl1, JTextField tf1,
                              String lbl2, JPasswordField pf2) {
         JPanel p = new JPanel(new GridBagLayout());
@@ -187,11 +190,10 @@ public class LoginGUI extends JFrame {
         // send to server
         setLoginInProgress(true);
 
-        // Create and execute the SwingWorker
+        // create and execute the SwingWorker
         LoginWorker worker = new LoginWorker(user, pass, isTeller);
         worker.execute();
 
-        // optionally disable inputs until reply...
     }
 
         private class LoginWorker extends SwingWorker<Message, Void> {
@@ -207,28 +209,21 @@ public class LoginGUI extends JFrame {
 
         @Override
         protected Message doInBackground() throws Exception {
-            // This runs on a background thread
-            // Call the appropriate method in LoginApplication
-            // These methods now block and return the result Message
             System.out.println("[LoginGUI] Worker starting login for: " + username); // Debug
             if (isTellerLogin) {
                 return loginApp.TellerLogin(username, password);
             } else {
                 return loginApp.ClientLogin(username, password);
             }
-            // Exceptions thrown here (e.g., connection error during blocking call)
-            // will be wrapped in an ExecutionException caught by get() in done()
         }
 
         @Override
         protected void done() {
-            // This runs on the EDT after doInBackground finishes
-            System.out.println("Login worker finished."); // Debug
-            Message result = null; // Initialize result
+            System.out.println("Login worker finished."); 
+            Message result = null;
             try {
-                result = get(); // Get the result (SuccessMessage or FailureMessage)
-                System.out.println("Worker result received: " + (result != null ? result.getType() : "null")); // Debug
-                // Process the result - null check added for safety
+                result = get(); 
+                System.out.println("Worker result received: " + (result != null ? result.getType() : "null")); 
                  if (result != null) {
                     handleAuthResult(result);
                  } else {
@@ -241,7 +236,6 @@ public class LoginGUI extends JFrame {
                 showError("Login process was interrupted.");
                 resetToLoginScreen(); 
             } catch (ExecutionException e) {
-                // exception occurred within doInBackground()
                 System.err.println("[LoginGUI Error] Exception during login execution: " + e.getCause());
                 e.getCause().printStackTrace();
                 String errorMsg = "An error occurred during login: ";
@@ -261,102 +255,86 @@ public class LoginGUI extends JFrame {
     }
 
     public void handleAuthResult(Message msg) {
-        // No need for SwingUtilities.invokeLater here, done() is already on EDT
-
         if (msg instanceof SuccessMessage successMsg) {
-            // Login successful
-            setVisible(false); // Hide login window
+            setVisible(false); 
 
             SessionInfo session = successMsg.getSession();
             if (session == null) {
                  showError("Login successful but received invalid session from server.");
-                 resetToLoginScreen(); // Go back to login
-                 setVisible(true); // Show login again
+                 resetToLoginScreen(); 
+                 setVisible(true); 
                  return;
             }
 
             System.out.println("[LoginGUI] Login Success for " + session.getRole() + ": " + session.getUsername());
 
-            // Launch the next appropriate GUI
             if (session.getRole() == SessionInfo.ROLE.TELLER) {
                 // --- Teller GUI Launch ---
                 TellerApplication tellerApp = loginApp.getTellerApp();
                 if (tellerApp != null) {
-                     // Assuming TellerProfileGUI constructor takes TellerApplication
                      TellerProfileGUI tellerGui = new TellerProfileGUI(tellerApp); // Adjust constructor if needed
-                     tellerGui.display(); // Use display method to ensure EDT
-                     dispose(); // Dispose login window fully after launching next
+                     // tellerGui.display(); // Use display method to ensure EDT
+                     dispose(); 
                 } else {
                      showError("Login successful but Teller application failed to initialize.");
                      resetToLoginScreen();
-                     setVisible(true); // Show login again
+                     setVisible(true); 
                 }
 
             } else if (session.getRole() == SessionInfo.ROLE.CLIENT) {
                 // --- Client GUI Launch ---
                 ClientProfileApplication clientApp = loginApp.getClientProfileApp();
                 if (clientApp != null) {
-                    // --- Load Profile in Background BEFORE showing ATM GUI ---
                     loadClientProfileAndShowAtmGui(clientApp);
-                    // Login window is disposed by the profile loader worker upon success
                 } else {
                     showError("Login successful but Client application failed to initialize.");
                     resetToLoginScreen();
-                    setVisible(true); // Show login again
+                    setVisible(true); 
                 }
 
             } else {
                  showError("Login successful but received unknown user role from server.");
                  resetToLoginScreen();
-                 setVisible(true); // Show login again
+                 setVisible(true);
             }
 
         } else if (msg instanceof FailureMessage failMsg) {
-            // Login failed - Show error message from server
+            // show error msg from centralserver
             JOptionPane.showMessageDialog(
                 this,
-                failMsg.getMessage(), // Get message from FailureMessage
+                failMsg.getMessage(), 
                 "Login Failed",
                 JOptionPane.ERROR_MESSAGE
             );
-            resetToLoginScreen(); // Stay on login screen, clear password potentially
+            resetToLoginScreen(); 
         } else {
-            // Unexpected message type (could be null if get() failed unexpectedly)
              showError("Received unexpected or null response from server during login.");
              resetToLoginScreen();
         }
     }
 
     private void loadClientProfileAndShowAtmGui(ClientProfileApplication clientApp) {
-        // Update status on the (soon to be hidden) login window
         statusLabel.setText("Login successful. Loading profile...");
         statusLabel.setForeground(Color.BLUE);
-        // Keep UI disabled while profile loads
         setLoginInProgress(true);
 
 
-        SwingWorker<ProfileMessage, Void> profileLoader = new SwingWorker<>() {
+        SwingWorker<Message, Void> profileLoader = new SwingWorker<>() {
             @Override
-            protected ProfileMessage doInBackground() throws Exception {
-                System.out.println("[LoginGUI] ProfileLoader worker starting profile request..."); // Debug
-                // Call the blocking method to request profile data
-                // Modify requestProfile in ClientProfileApplication to return ProfileMessage
-                // or throw specific exceptions on failure.
+            protected Message doInBackground() throws Exception {
                 return clientApp.requestProfile();
             }
 
             @Override
             protected void done() {
-                System.out.println("[LoginGUI] ProfileLoader worker finished."); // Debug
                 ProfileMessage profileMsg = null;
-                try {
-                    profileMsg = get(); // Get the loaded profile message
+               try { 
+                    profileMsg = getProfile(); 
                     if (profileMsg != null) {
-                        // Profile loaded successfully, now launch ATM GUI
-                        System.out.println("[LoginGUI] Profile loaded successfully, launching ATM GUI."); // Debug
-                        ATMProfileGUI atmGui = new ATMProfileGUI(clientApp, profileMsg);
-                        atmGui.display(); // Show the ATM GUI
-                        dispose(); // Dispose login window AFTER launching ATM GUI
+                        System.out.println("[LoginGUI] Profile loaded successfully, launching ATM GUI."); 
+                        //ATMProfileGUI atmGui = new ATMProfileGUI(clientApp, profileMsg);
+                        //atmGui.display(); 
+                        dispose(); 
                     } else {
                         // Failed to load profile (requestProfile returned null)
                         showError("Login successful, but failed to load your profile data from the server.");
@@ -365,13 +343,10 @@ public class LoginGUI extends JFrame {
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    System.err.println("[LoginGUI Error] Profile loading worker interrupted: " + e.getMessage());
                     showError("Profile loading was interrupted.");
                     resetToLoginScreen(); setVisible(true);
                 } catch (ExecutionException e) {
-                    System.err.println("[LoginGUI Error] Exception during profile loading execution: " + e.getCause());
-                    e.getCause().printStackTrace();
-                    showError("Error loading profile: " + e.getCause().getMessage());
+                    showError("Error loading profile");
                     resetToLoginScreen(); setVisible(true);
                 } finally {
                      // Re-enable login UI if still visible (e.g., if profile load failed)
@@ -380,26 +355,21 @@ public class LoginGUI extends JFrame {
                      }
                 }
             }
+        
         };
         profileLoader.execute();
    }
 
 
-    /**
-     * This gets called by your LoginApplication once the
-     * ConnectionHandler sees SUCCESS or FAILURE.
-     */
    /*  public void handleAuthResult(Message msg) {
         SwingUtilities.invokeLater(() -> {
             if (msg.getType() == Message.TYPE.SUCCESS) {
-                // hide login window
                 setVisible(false);
 
                 // cast to SuccessMessage
                 SuccessMessage success = (SuccessMessage) msg;
                 SessionInfo session = success.getSession();
 
-                // launch the next GUI based on role
                 if (session.getRole() == SessionInfo.ROLE.TELLER) {
                 	TellerApplication tApp = new TellerApplication(loginApp);
                     new TellerProfileGUI(tApp).Login();
@@ -429,7 +399,7 @@ public class LoginGUI extends JFrame {
 
    
     private void setLoginInProgress(boolean inProgress) {
-        // Run UI updates on the EDT
+   
         SwingUtilities.invokeLater(() -> {
             boolean enabled = !inProgress; 
             loginBtn.setEnabled(enabled);
@@ -443,23 +413,20 @@ public class LoginGUI extends JFrame {
             if (inProgress) {
                 statusLabel.setText("Attempting login, please wait...");
                 statusLabel.setForeground(Color.BLUE);
-                setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)); // Show wait cursor
+                setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)); 
             } else {
-                // statusLabel text is updated by handleAuthResult or resetToLoginScreen
-                // statusLabel.setText("Please enter your credentials.");
+                // statusLabel.setText("Please enter your login credentials.");
                 // statusLabel.setForeground(Color.GRAY);
-                setCursor(Cursor.getDefaultCursor()); // Restore default cursor
+                setCursor(Cursor.getDefaultCursor()); 
             }
         });
     }
 
     public void resetToLoginScreen() {
-        // Ensure UI updates happen on the EDT
         SwingUtilities.invokeLater(() -> {
-             // Clear password fields
+             // clear password fields
              empPass.setText("");
              clientPass.setText("");
-             // Optionally clear username fields or set focus
              if (clientBtn.isSelected()) {
                   clientField.requestFocusInWindow();
              } else {
@@ -467,7 +434,7 @@ public class LoginGUI extends JFrame {
              }
              statusLabel.setText("Login failed. Please try again.");
              statusLabel.setForeground(Color.RED);
-             setLoginInProgress(false); // Ensure components are enabled
+             setLoginInProgress(false);
         });
    }
 
@@ -478,7 +445,6 @@ public class LoginGUI extends JFrame {
         );
     }
 
-    /** Start off the UI */
     public void Login() {
         SwingUtilities.invokeLater(() -> setVisible(true));
     }

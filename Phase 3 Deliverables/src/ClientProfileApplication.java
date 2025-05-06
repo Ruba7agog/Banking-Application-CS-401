@@ -21,13 +21,15 @@ public class ClientProfileApplication {
         this.session = s;
     }
 
+    public ClientProfile getProfile() {
+        return this.profile;
+    }
     // this sends request to server for clientProfile info
     // ~~~~~~BLOCKS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    public void requestProfile(){
+    public Message requestProfile(){
         // create ProfileMessage object to send
-        Message profileMessage = new ProfileMessage(Message.TYPE.LOAD_PROFILE, session);
-        // send to server via handler
+        Message profileMessage = new ProfileMessage(Message.TYPE.LOAD_PROFILE, session, session.getUsername());
         handler.send(profileMessage);
 
         // BLOCK and wait for server response
@@ -51,8 +53,9 @@ public class ClientProfileApplication {
             } else {
                 System.out.println("Error: unexpected message type received");
             }
-        } catch (Exception e) { // ConnectionHandler.getMessage() throws an InterruptedException
-            System.out.println("Request interrupted");
+            return serverResponse;
+        } catch (Exception e) { 
+            return new FailureMessage("An error occurred during load_Profile: " + e.getMessage());
         }
     }
 
@@ -106,3 +109,4 @@ public class ClientProfileApplication {
         handler.shutDown();
     }   
 }
+
