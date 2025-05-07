@@ -3,7 +3,11 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class Transaction implements Serializable {
+public final class Transaction implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	public enum OPERATION {
 		WITHDRAW,
 		DEPOSIT
@@ -18,13 +22,9 @@ public class Transaction implements Serializable {
 		this.op = op;
 	}
 	public String getDate() {
-		// getter for formatted date
 		SimpleDateFormat format = new SimpleDateFormat("MM/dd/yyyy");
 		String formatDate = format.format(created);
 		return formatDate;
-	}
-	public Date getCreated(){
-		return this.created;
 	}
 	public BigDecimal getAmount() {
 		return amount;

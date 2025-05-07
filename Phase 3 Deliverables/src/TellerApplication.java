@@ -345,7 +345,6 @@ public class TellerApplication {
         }
 
         handler.setLoggedOut(true);
-        handler.shutDown();
     }
 
     // __________________________________________
@@ -429,7 +428,7 @@ public class TellerApplication {
     }
 
     public String getTellerName() {
-        return (profile != null) ? profile.getLegalName() : "Teller";
+        return session.getUsername();    
     }
 
     public String getBranch() {

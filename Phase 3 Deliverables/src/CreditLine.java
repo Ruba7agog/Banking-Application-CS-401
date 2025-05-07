@@ -1,27 +1,16 @@
 import java.math.BigDecimal;
-import java.util.List;
 
-
-/* FROM DESIGN DOC:
-- Tellers can only create a line of credit for customers who already 
-have a checking account with at least $1000 in balance
-- Clients will have a third of corresponding checking account balance at the time of creation
-- Tellers will set the credit limit when creating a new credit line for the client
-*/ 
 public class CreditLine extends Account {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	private BigDecimal creditLimit;  // maximum overdraft (positive amount)
 
+    /** Construct from a String limit (e.g. "500.00") */
     public CreditLine(String limit) {
-        super();
         this.creditLimit = new BigDecimal(limit);
     }
-
-    //constructor for client-side refresh
-    // constructor for client-side refresh
-	public CreditLine(String id, BigDecimal balance,  List<Transaction> history, BigDecimal limit) {
-		super(id, balance, history);
-        this.creditLimit = limit;
-	}
     
     public void setCreditLimit(String newLimit) {
         this.creditLimit = new BigDecimal(newLimit);
@@ -31,19 +20,23 @@ public class CreditLine extends Account {
         return creditLimit;
     }
 
-
+    /**
+     * Records a transaction, but first enforces that the post-transaction
+     * balance never goes below –creditLimit.
+     */
     @Override
     public void addTransaction(Transaction trans) {
-        // trans.getAmount() is negative for withdrawals,
+        // Assuming trans.getAmount() is negative for withdrawals,
         // positive for deposits:
         BigDecimal newBalance = getBalance().add(trans.getAmount());
 
-        // check if going over limit
+        // If newBalance < –creditLimit, the user exceeded their line
         if (newBalance.compareTo(creditLimit.negate()) < 0) {
             throw new IllegalStateException("Credit limit exceeded: would go to " 
                 + newBalance.toPlainString());
         }
 
+        // If limit not breached, the base class record it and update balance
         super.addTransaction(trans);
     }
 }

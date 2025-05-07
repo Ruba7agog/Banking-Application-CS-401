@@ -1,6 +1,12 @@
+import java.io.Serializable;
 import java.math.BigDecimal;
 
-public final class AccountSummary {
+public final class AccountSummary implements Serializable {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	public enum ACCOUNT_TYPE {
 		CHECKING,
 		SAVING,

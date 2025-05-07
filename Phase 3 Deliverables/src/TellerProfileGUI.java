@@ -91,6 +91,7 @@ public class TellerProfileGUI extends JFrame {
         searchBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Search – coming soon!"));
         createBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Create – coming soon!"));
         logoutBtn.addActionListener(e -> {
+        	app.logoutTeller();
             dispose();                  // Close the teller GUI
             loginGUI.setVisible(true);  // Bring the login GUI back
         });

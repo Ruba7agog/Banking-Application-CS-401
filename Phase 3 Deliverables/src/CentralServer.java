@@ -55,19 +55,31 @@ public class CentralServer {
         this.clientDatabase  = DB.getClientDatabase();
         this.accountDatabase = DB.getAccountDatabase();
         
-     // Add dummy teller for login testing
+        // Add dummy teller for login testing
     	tellerDatabase.put("bob", "test");
+    	tellerDatabase.put("alice", "test");
+    	
+    	// Add dummy client with one account
+        String dummyUser = "johndoe";
+        String dummyPass = "password";
+        ClientProfile client = new ClientProfile(dummyUser, dummyPass, "111-1111", "123 Main St", "John Doe");
+
+        // Create a dummy account
+        Account dummyAccount = new CheckingAccount();
+        accountDatabase.put(dummyAccount.getID(), dummyAccount);
+        
+        Account dummyAccount2 = new SavingAccount();
+        accountDatabase.put(dummyAccount2.getID(), dummyAccount2);
+
+        // Link account to profile
+        client.addAccountID(dummyAccount.getID());
+        client.addAccountID(dummyAccount2.getID());
+        clientDatabase.put(dummyUser, client);
 	}
 
 	// Runs the actual server
 	public static void main(String[] args) {
 		CentralServer serverInstance = new CentralServer(); // <== Create instance
-
-//		// In case the server unexpectedly or forcefully closes (Doesn't work in JVM)
-//		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-//			System.out.println("[Server] Shutdown initiated.");
-//			serverInstance.serverShutDown();
-//		}));
 		
 		// Thread to listen for console commands
 	    new Thread(() -> {
@@ -886,7 +898,9 @@ public class CentralServer {
 	private void handleClientLogout(LogoutMessage msg, ClientHandler handler) {
 		// 1) Grab and remove the session
 		SessionInfo session = msg.getSession();
-		sessionIDs.remove(session.getSessionID());
+		if (session != null) {
+			sessionIDs.remove(session.getUsername());
+		}
 
 		// 2) Unlock profile
 		String username = msg.getSession().getUsername();

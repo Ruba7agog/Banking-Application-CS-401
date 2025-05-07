@@ -147,7 +147,9 @@ public class LoginGUI extends JFrame {
                         	tellerGUI.setVisible(true);
                         } else {
                         	System.out.println("Client Login Successful");
-                            //new ATMProfileGUI(handler, session).display();
+                            LoginGUI.this.setVisible(false);
+                            ATMProfileGUI atmProfileGUI = new ATMProfileGUI(session, loginApp.getHandler(), LoginGUI.this);
+                            atmProfileGUI.setVisible(true);
                         }
                     } catch (Exception ex) {
                         JOptionPane.showMessageDialog(LoginGUI.this,

@@ -51,7 +51,7 @@ public final class ProfileMessage extends Message {
 //    }
 
 	// Constructor for creating new Profile STEP 2: send over new info
-	public ProfileMessage(TYPE type, 
+	public ProfileMessage(
 			SessionInfo session, 
 			String username, 
 			String password, 
